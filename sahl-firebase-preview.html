@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>سهل</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js"></script>
+<style>
+  :root{
+    --bg: #F3F1EA;
+    --ink: #23241F;
+    --ink-soft: #46483F;
+    --card: #FFFFFF;
+    --line: #DEDACB;
+
+    --emergency: #A6291E;
+    --emergency-dark: #7E1E15;
+    --family: #2F6B4F;
+    --family-dark: #234E3A;
+    --medicine: #B5720E;
+    --medicine-dark: #8A5709;
+    --doctor: #1F4E79;
+    --doctor-dark: #163A5A;
+    --alarm: #5B4B8A;
+    --alarm-dark: #423569;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Tajawal', sans-serif;
+    overscroll-behavior:none;
+    user-select:none;
+  }
+
+  #app{ display:flex; flex-direction:column; min-height:100vh; padding:20px 18px 28px; }
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 4px 18px;
+  }
+  .greeting{ display:flex; flex-direction:column; gap:2px; }
+  .greeting .app-name{ font-size:36px; font-weight:900; color:var(--medicine); letter-spacing:0.5px; margin-bottom:3px; }
+  .greeting .hello{ font-size:31px; font-weight:700; color:var(--ink); }
+  .greeting .clock{ font-size:20px; color:var(--ink-soft); font-weight:500; }
+  .header-right{ display:flex; flex-direction:column; align-items:center; gap:8px; flex-shrink:0; }
+  .home-lang-switch{ display:flex; gap:4px; margin-bottom:0; }
+  .home-lang-switch .lang-btn{
+    flex:none; padding:6px 10px; font-size:13px; border-radius:8px;
+    min-width:0;
+  }
+  .gear{
+    width:44px; height:44px; border-radius:50%;
+    background:var(--card); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .gear svg{ width:22px; height:22px; }
+
+  .appointment-banner{
+    display:flex; align-items:center; gap:12px;
+    background:var(--doctor); color:#fff; border-radius:16px;
+    padding:14px 16px; margin-bottom:16px;
+  }
+  .appointment-banner .ab-icon{ font-size:26px; flex-shrink:0; }
+  .appointment-banner .ab-text{ font-size:17px; font-weight:700; line-height:1.5; }
+
+  .grid{
+    display:flex; flex-direction:column; gap:16px;
+    flex:1;
+  }
+
+  .btn{
+    border:none; border-radius:22px; cursor:pointer;
+    display:flex; align-items:center; gap:18px;
+    padding:26px 24px;
+    color:#fff; text-align:right;
+    width:100%;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.18);
+    position:relative;
+    overflow:hidden;
+  }
+  .btn:active{ transform: translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.18); }
+
+  .btn .icon{
+    width:58px; height:58px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,0.22);
+    border-radius:16px;
+  }
+  .btn .icon svg{ width:32px; height:32px; }
+
+  .btn .label{ font-size:29px; font-weight:700; line-height:1.25; }
+  .btn .sub{ font-size:17px; font-weight:500; opacity:0.85; margin-top:2px; }
+
+  .btn.emergency{ background:var(--emergency); min-height:118px; }
+  .btn.family{ background:var(--family); }
+  .btn.medicine{ background:var(--medicine); }
+  .btn.doctor{ background:var(--doctor); }
+
+  .btn.emergency .progress{
+    position:absolute; inset:0; background:var(--emergency-dark);
+    transform: scaleX(0); transform-origin: right;
+    transition: transform linear;
+  }
+  .btn.emergency .content{ position:relative; z-index:1; display:flex; align-items:center; gap:18px; width:100%; }
+
+  .hint{
+    text-align:center; color:var(--ink-soft); font-size:17px; font-weight:500;
+    margin-top:14px; font-weight:500;
+  }
+
+  /* Confirmation overlay */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,20,18,0.55);
+    display:none; align-items:flex-end; justify-content:center; z-index:50;
+  }
+  .overlay.show{ display:flex; }
+  .sheet{
+    background:var(--card); width:100%; max-width:520px;
+    border-radius:26px 26px 0 0; padding:30px 24px 34px;
+    text-align:center;
+  }
+  .sheet .icon-big{
+    width:78px; height:78px; border-radius:50%; margin:0 auto 16px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .sheet .icon-big.ok{ background:#E4F0E9; }
+  .sheet .icon-big svg{ width:40px; height:40px; }
+  .sheet h2{ font-size:27px; margin:0 0 8px; }
+  .sheet p{ font-size:19px; color:var(--ink-soft); margin:0 0 24px; line-height:1.6; white-space:pre-line; }
+  .sheet button{
+    width:100%; padding:18px; border-radius:16px; border:none;
+    font-family:'Tajawal',sans-serif; font-size:21px; font-weight:700;
+    background:var(--ink); color:#fff; cursor:pointer;
+  }
+
+  @media (min-width: 560px){
+    #app{ max-width:520px; margin:0 auto; }
+  }
+
+  /* ---- Settings screen ---- */
+  #settingsScreen{
+    display:none;
+    min-height:100vh; background:var(--bg);
+    padding:20px 18px 40px;
+  }
+  #settingsScreen.show{ display:block; }
+  #medsScreen, #activityScreen{ display:none; min-height:100vh; background:var(--bg); padding:20px 18px 40px; }
+  #medsScreen.show, #activityScreen.show{ display:block; }
+  @media (min-width: 560px){
+    #medsScreen{ max-width:520px; margin:0 auto; }
+    #activityScreen{ max-width:520px; margin:0 auto; }
+  }
+
+  .med-today-row{
+    display:flex; flex-direction:column; gap:14px;
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:12px; border-right:6px solid var(--medicine);
+  }
+  .med-today-top{ display:flex; align-items:center; gap:14px; }
+  .med-today-row .info{ flex:1; }
+  .med-today-row .info .n{ font-size:23px; font-weight:700; }
+  .med-today-row .info .t{ font-size:18px; color:var(--ink-soft); margin-top:2px; font-weight:500; }
+  .med-today-actions{ display:flex; gap:10px; }
+  .med-today-actions .take-btn{ flex:1; }
+  .take-btn{
+    padding:15px 22px; border-radius:12px; border:none;
+    font-family:'Tajawal',sans-serif; font-size:18px; font-weight:700;
+    background:var(--medicine); color:#fff; cursor:pointer; flex-shrink:0;
+  }
+  .take-btn.taken{ background:#E9DDBF; color:var(--medicine-dark); }
+
+  .activity-row{
+    display:flex; align-items:center; gap:12px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px; margin-bottom:10px; font-size:18px; font-weight:500;
+  }
+  .activity-row .dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .activity-row .txt{ flex:1; }
+  .activity-row .time{ color:var(--ink-soft); font-size:15px; font-weight:600; }
+  @media (min-width: 560px){ #settingsScreen{ max-width:520px; margin:0 auto; } }
+
+  .settings-header{
+    display:flex; align-items:center; gap:12px; padding:6px 4px 20px;
+  }
+  .back-btn{
+    width:48px; height:48px; border-radius:50%; border:1px solid var(--line);
+    background:var(--card); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0;
+  }
+  .back-btn svg{ width:24px; height:24px; }
+  .settings-header h1{ font-size:36px; margin:0; }
+
+  .settings-note{
+    background:#EFE8D6; border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; font-size:20px; color:var(--ink); margin-bottom:24px;
+    line-height:1.7; font-weight:500;
+  }
+
+  .field-group{
+    background:var(--card); border:1px solid var(--line); border-radius:18px;
+    padding:20px 18px; margin-bottom:18px;
+    border-right:6px solid var(--accent, var(--line));
+  }
+  .field-group h3{
+    font-size:26px; margin:0 0 16px; color:var(--accent-dark, var(--ink)); font-weight:700;
+    display:flex; align-items:center; gap:10px;
+  }
+  .field-group h3 .dot{ width:16px; height:16px; border-radius:50%; background:var(--accent, var(--ink-soft)); flex-shrink:0; }
+  .field{ margin-bottom:16px; }
+  .field:last-child{ margin-bottom:0; }
+  .field label{ display:block; font-size:20px; color:var(--ink); margin-bottom:8px; font-weight:600; }
+  .field input{
+    width:100%; padding:18px 16px; border-radius:12px; border:1px solid var(--line);
+    background:#FCFBF8; font-family:'Tajawal',sans-serif; font-size:23px; color:var(--ink);
+  }
+  .field input:focus{ outline:2px solid var(--accent, var(--doctor)); outline-offset:1px; }
+  .field select{
+    width:100%; padding:18px 16px; border-radius:12px; border:1px solid var(--line);
+    background:#FCFBF8; font-family:'Tajawal',sans-serif; font-size:22px; color:var(--ink);
+  }
+  .field input[type="range"]{
+    padding:0; height:14px; -webkit-appearance:none; appearance:none;
+    background:var(--line); border:none; border-radius:7px; cursor:pointer;
+  }
+  .field input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:32px; height:32px; border-radius:50%;
+    background:var(--alarm); border:3px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.3); cursor:pointer;
+  }
+  .field input[type="range"]::-moz-range-thumb{
+    width:32px; height:32px; border-radius:50%;
+    background:var(--alarm); border:3px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.3); cursor:pointer;
+  }
+
+  .field-group.fg-family{ --accent:var(--family); --accent-dark:var(--family-dark); }
+  .field-group.fg-doctor{ --accent:var(--doctor); --accent-dark:var(--doctor-dark); }
+  .field-group.fg-medicine{ --accent:var(--medicine); --accent-dark:var(--medicine-dark); }
+  .field-group.fg-emergency{ --accent:var(--emergency); --accent-dark:var(--emergency-dark); }
+  .field-group.fg-alarm{ --accent:var(--alarm); --accent-dark:var(--alarm-dark); }
+
+  .save-bar{
+    position:sticky; bottom:0; padding-top:10px;
+  }
+  .save-btn{
+    width:100%; padding:20px; border-radius:14px; border:none;
+    background:var(--ink); color:#fff; font-family:'Tajawal',sans-serif;
+    font-size:23px; font-weight:700; cursor:pointer;
+  }
+  .saved-flash{
+    text-align:center; font-size:17px; color:var(--family); font-weight:600;
+    margin-top:12px; opacity:0; transition:opacity 200ms;
+  }
+  .saved-flash.show{ opacity:1; }
+
+  #transitionFlash{
+    position:fixed; inset:0; background:#fff; pointer-events:none;
+    opacity:0; z-index:80; transition:opacity 180ms ease-out;
+  }
+  #transitionFlash.flash{ opacity:0.5; transition:opacity 50ms ease-out; }
+
+  .med-row{
+    display:flex; align-items:center; gap:10px;
+    background:#FCFBF8; border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px; margin-bottom:12px;
+  }
+  .med-row input[type="text"]{
+    flex:1; border:none; background:transparent; font-family:'Tajawal',sans-serif;
+    font-size:20px; padding:6px 0; min-width:0; color:var(--ink);
+  }
+  .med-row input[type="time"]{
+    border:1px solid var(--line); border-radius:8px; padding:12px 14px;
+    font-family:'Tajawal',sans-serif; font-size:20px; background:#fff; flex-shrink:0; color:var(--ink);
+  }
+  .med-row .remove-med{
+    width:36px; height:36px; border-radius:50%; border:none;
+    background:#F0E4E2; color:var(--emergency); font-size:22px; font-weight:700;
+    flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ---- Medication card (name + time + dose + photo) ---- */
+  .med-card{
+    background:#FCFBF8; border:1px solid var(--line); border-radius:14px;
+    padding:16px; margin-bottom:14px;
+  }
+  .med-card-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .med-card-row:last-child{ margin-bottom:0; }
+  .med-card input[type="text"]{
+    flex:1; min-width:0; border:1px solid var(--line); border-radius:10px;
+    padding:13px 14px; font-family:'Tajawal',sans-serif; font-size:20px;
+    background:#fff; color:var(--ink);
+  }
+  .med-card input[type="time"]{
+    width:100%; border:1px solid var(--line); border-radius:10px; padding:13px 14px;
+    font-family:'Tajawal',sans-serif; font-size:20px; background:#fff; color:var(--ink); flex-shrink:0;
+  }
+  .med-card input[type="number"]{
+    width:100%; border:1px solid var(--line); border-radius:10px;
+    padding:13px 14px; font-family:'Tajawal',sans-serif; font-size:20px;
+    background:#fff; color:var(--ink);
+  }
+  .med-photo-preview{
+    width:88px; height:88px; border-radius:16px; object-fit:cover; flex-shrink:0;
+    border:2px solid var(--line); box-shadow:0 2px 8px rgba(0,0,0,0.12);
+  }
+  .med-photo-preview.placeholder{
+    display:flex; align-items:center; justify-content:center; font-size:38px;
+    background:#F3D9A8; color:var(--medicine-dark);
+  }
+  .med-photo-btn{
+    border:1px dashed var(--line); border-radius:10px; padding:12px 14px;
+    background:#fff; font-family:'Tajawal',sans-serif; font-size:18px; color:var(--ink-soft);
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; flex:1; min-width:0;
+  }
+  .med-photo-btn span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .med-card .remove-med{
+    width:40px; height:40px; border-radius:50%; border:none;
+    background:#F0E4E2; color:var(--emergency); font-size:22px; font-weight:700;
+    flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ---- Active flashing alert overlay (medicine / doctor time reached) ---- */
+  .med-alert-overlay{
+    position:fixed; inset:0; z-index:100; display:none;
+    align-items:center; justify-content:center; padding:22px;
+    animation: alertFlashMed 1s infinite;
+  }
+  .med-alert-overlay.show{ display:flex; }
+  .med-alert-overlay.doctor-type{ animation-name: alertFlashDoc; }
+  .med-alert-overlay.alarm-type{ animation-name: alertFlashAlarm; }
+  .med-alert-overlay.missed-type{ animation-name: alertFlashMissed; }
+  @keyframes alertFlashMissed{
+    0%,100%{ background:rgba(166,41,30,0.97); }
+    50%{ background:rgba(224,120,110,0.97); }
+  }
+  @keyframes alertFlashMed{
+    0%,100%{ background:rgba(181,114,14,0.97); }
+    50%{ background:rgba(255,199,102,0.97); }
+  }
+  @keyframes alertFlashDoc{
+    0%,100%{ background:rgba(31,78,121,0.97); }
+    50%{ background:rgba(112,171,222,0.97); }
+  }
+  @keyframes alertFlashAlarm{
+    0%,100%{ background:rgba(91,75,138,0.97); }
+    50%{ background:rgba(168,151,214,0.97); }
+  }
+  .med-alert-card{
+    background:#fff; border-radius:28px; padding:28px 20px; text-align:center;
+    max-width:460px; width:100%; max-height:90vh; box-shadow:0 12px 40px rgba(0,0,0,0.32);
+    display:flex; flex-direction:column;
+  }
+  .med-alert-icon{ font-size:48px; margin-bottom:4px; }
+  .med-alert-heading{ font-size:28px; font-weight:900; margin-bottom:18px; line-height:1.3; }
+  .med-alert-items{ overflow-y:auto; margin-bottom:16px; }
+
+  /* عرض بارز/مكبّر عندما يكون هناك دواء واحد فقط في التنبيه */
+  .med-alert-hero{ display:flex; flex-direction:column; align-items:center; }
+  .med-alert-hero-photo{
+    width:100%; max-width:300px; height:230px; border-radius:22px; object-fit:cover;
+    border:3px solid #fff; box-shadow:0 8px 24px rgba(0,0,0,0.28); margin-bottom:16px;
+  }
+  .med-alert-hero-photo.placeholder{
+    display:flex; align-items:center; justify-content:center; font-size:90px;
+    background:#F3D9A8; color:var(--medicine-dark);
+  }
+  .med-alert-hero-name{ font-size:30px; font-weight:900; line-height:1.3; margin-bottom:8px; }
+  .med-alert-hero-dose{ font-size:23px; font-weight:700; color:var(--ink-soft); margin-bottom:6px; line-height:1.5; }
+  .med-alert-hero .hero-take{ margin-top:8px; }
+  .med-alert-item{
+    display:flex; align-items:center; gap:14px;
+    background:#FCFBF8; border:1px solid var(--line); border-right:6px solid var(--medicine);
+    border-radius:18px; padding:14px; margin-bottom:12px; text-align:right;
+  }
+  .med-alert-item:last-child{ margin-bottom:0; }
+  .med-alert-item img{ width:110px; height:110px; border-radius:16px; object-fit:cover; flex-shrink:0; border:2px solid #fff; box-shadow:0 3px 10px rgba(0,0,0,0.18); }
+  .med-alert-item .item-icon{
+    width:110px; height:110px; border-radius:16px; background:#F3D9A8;
+    display:flex; align-items:center; justify-content:center; font-size:50px; flex-shrink:0;
+  }
+  .med-alert-item .item-info{ flex:1; min-width:0; }
+  .med-alert-item .item-name{ font-size:23px; font-weight:900; line-height:1.3; }
+  .med-alert-item .item-dose{ font-size:18px; color:var(--ink-soft); margin-top:4px; font-weight:600; line-height:1.4; }
+  .med-alert-item .item-take{
+    padding:13px 16px; border-radius:12px; border:none;
+    background:var(--medicine); color:#fff; font-family:'Tajawal',sans-serif;
+    font-size:17px; font-weight:700; cursor:pointer; flex-shrink:0;
+  }
+  .med-alert-item.done{ opacity:0.65; }
+  .med-alert-item.done .item-take{ background:#E9DDBF; color:var(--medicine-dark); }
+  .med-alert-time{ font-size:18px; color:var(--ink-soft); margin-bottom:20px; font-weight:600; }
+  .med-alert-btn{
+    width:100%; padding:19px; border-radius:16px; border:none;
+    font-family:'Tajawal',sans-serif; font-size:22px; font-weight:700;
+    cursor:pointer; margin-bottom:10px; background:var(--medicine); color:#fff;
+  }
+  .med-alert-btn.secondary{ background:#EFE8D6; color:var(--ink); margin-bottom:0; }
+
+  /* ---- Language switcher ---- */
+  .lang-switch{ display:flex; gap:8px; margin-bottom:22px; }
+  .lang-btn{
+    flex:1; padding:13px 8px; border-radius:12px; border:1px solid var(--line);
+    background:var(--card); font-family:'Tajawal',sans-serif; font-size:16px; font-weight:700;
+    color:var(--ink-soft); cursor:pointer;
+  }
+  .lang-btn.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+
+  /* ---- LTR layout adjustments (French / English) ---- */
+  html[dir="ltr"] body{ direction:ltr; }
+  html[dir="ltr"] .btn{ text-align:left; }
+  html[dir="ltr"] .field-group{ border-right:none; border-left:6px solid var(--accent, var(--line)); }
+  html[dir="ltr"] .med-today-row{ border-right:none; border-left:6px solid var(--medicine); }
+  html[dir="ltr"] .med-alert-item{ border-right:none; border-left:6px solid var(--medicine); text-align:left; }
+  html[dir="ltr"] .settings-note{ text-align:left; }
+  html[dir="ltr"] .field label{ text-align:left; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="greeting">
+      <div class="app-name" data-i18n="app_name">سهل</div>
+      <div class="hello" id="hello">مرحبًا</div>
+      <div class="clock" id="clock">--:--</div>
+    </div>
+    <div class="header-right">
+      <div class="lang-switch home-lang-switch" id="langSwitch">
+        <button type="button" class="lang-btn" data-lang="ar">AR</button>
+        <button type="button" class="lang-btn" data-lang="fr">FR</button>
+        <button type="button" class="lang-btn" data-lang="en">EN</button>
+      </div>
+      <button class="gear" id="settingsBtn" aria-label="الإعدادات" data-i18n-aria="settings_aria">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#5B5D54" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="appointmentBanner" class="appointment-banner" style="display:none;">
+    <div class="ab-icon">🩺</div>
+    <div class="ab-text" id="appointmentBannerText"></div>
+  </div>
+
+  <div class="grid">
+    <button class="btn emergency" id="emergencyBtn">
+      <div class="progress" id="emergencyProgress"></div>
+      <div class="content">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M12 9v4"/><circle cx="12" cy="16.5" r="0.6" fill="#fff"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div>
+        <div>
+          <div class="label" data-i18n="btn_emergency_label">طوارئ</div>
+          <div class="sub" data-i18n="btn_emergency_sub">اضغط مطولًا لإرسال التنبيه</div>
+        </div>
+      </div>
+    </button>
+
+    <button class="btn family" id="familyBtn">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2Z"/></svg></div>
+      <div>
+        <div class="label" data-i18n="btn_family_label">اتصل بالعائلة</div>
+        <div class="sub" id="familySub">لم يتم تسجيل رقم بعد</div>
+      </div>
+    </button>
+
+    <button class="btn medicine" id="medicineBtn">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/><path d="M12 12v4M10 14h4"/></svg></div>
+      <div>
+        <div class="label" data-i18n="btn_medicine_label">دواء اليوم</div>
+        <div class="sub" id="medSub">لا توجد تذكيرات بعد</div>
+      </div>
+    </button>
+
+    <button class="btn doctor" id="doctorBtn">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M8 3v4M16 3v4"/><rect x="4" y="6" width="16" height="15" rx="2"/><path d="M9 13a3 3 0 0 0 6 0v-2H9Z"/></svg></div>
+      <div>
+        <div class="label" data-i18n="btn_doctor_label">اتصل بالطبيب</div>
+        <div class="sub" id="doctorSub">لم يتم تسجيل رقم بعد</div>
+      </div>
+    </button>
+  </div>
+
+  <div class="hint" data-i18n="hint_home">اضغط على أي زر للاستخدام</div>
+</div>
+
+<!-- Settings screen (filled in by a family member) -->
+<div id="settingsScreen">
+  <div class="settings-header">
+    <button class="back-btn" id="backBtn" aria-label="رجوع" data-i18n-aria="back_aria">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#23241F" stroke-width="2.2"><path d="m15 6-6 6 6 6"/></svg>
+    </button>
+    <h1 data-i18n="settings_title">الإعدادات</h1>
+  </div>
+
+  <div class="settings-note" data-i18n="settings_note">هذه الشاشة مخصّصة للابن أو الابنة — لإعداد أرقام الاتصال ومواعيد الدواء لمرة واحدة.</div>
+
+  <div class="field-group fg-family">
+    <h3><span class="dot"></span><span data-i18n="fg_family_title">جهة اتصال العائلة</span></h3>
+    <div class="field">
+      <label for="familyName" data-i18n="label_name_shown">الاسم (يظهر على الزر)</label>
+      <input type="text" id="familyName" placeholder="مثال: ابني أحمد" data-i18n-ph="ph_family_name">
+    </div>
+    <div class="field">
+      <label for="familyPhone" data-i18n="label_phone">رقم الهاتف</label>
+      <input type="tel" id="familyPhone" placeholder="0555 12 34 56">
+    </div>
+    <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);">
+      <label>رمز ربط جهاز العائلة (لتلقّي تنبيهات الطوارئ فورًا)</label>
+      <div id="familyCodeDisplay" style="font-size:26px;font-weight:900;letter-spacing:5px;text-align:center;padding:12px;background:#fff;border-radius:10px;border:1.5px solid var(--line);">...</div>
+      <div style="font-size:13px;color:var(--ink-soft);margin-top:6px;">اطلب من ابنك/ابنتك فتح الرابط بـ<code>?family=1</code> على جهازه وإدخال هذا الرمز.</div>
+    </div>
+  </div>
+
+  <div class="field-group fg-emergency">
+    <h3><span class="dot"></span><span data-i18n="fg_emergency_title">معلومات طبية للطوارئ</span></h3>
+    <div style="font-size:18px; color:var(--ink-soft); margin-bottom:14px; line-height:1.7; font-weight:500;" data-i18n="emergency_info_note">تُرفق تلقائيًا مع رسالة الطوارئ حتى يعرفها أي شخص يساعده فورًا.</div>
+    <div class="field">
+      <label for="bloodType" data-i18n="label_blood_type">فصيلة الدم</label>
+      <input type="text" id="bloodType" placeholder="مثال: O+" data-i18n-ph="ph_blood_type">
+    </div>
+    <div class="field">
+      <label for="allergies" data-i18n="label_allergies">حساسية من أدوية</label>
+      <input type="text" id="allergies" placeholder="مثال: البنسلين" data-i18n-ph="ph_allergies">
+    </div>
+    <div class="field">
+      <label for="chronicConditions" data-i18n="label_chronic">أمراض مزمنة</label>
+      <input type="text" id="chronicConditions" placeholder="مثال: سكري، ضغط" data-i18n-ph="ph_chronic">
+    </div>
+    <div class="field">
+      <label for="iceNotes" data-i18n="label_ice_notes">ملاحظات إضافية</label>
+      <input type="text" id="iceNotes" placeholder="أي معلومة مهمة أخرى" data-i18n-ph="ph_ice_notes">
+    </div>
+  </div>
+
+  <div class="field-group fg-doctor">
+    <h3><span class="dot"></span><span data-i18n="fg_doctor_title">جهة اتصال الطبيب</span></h3>
+    <div class="field">
+      <label for="doctorName" data-i18n="label_name_shown">الاسم (يظهر على الزر)</label>
+      <input type="text" id="doctorName" placeholder="مثال: د. أحمد" data-i18n-ph="ph_doctor_name">
+    </div>
+    <div class="field">
+      <label for="doctorPhone" data-i18n="label_phone">رقم الهاتف</label>
+      <input type="tel" id="doctorPhone" placeholder="0555 98 76 54">
+    </div>
+    <div class="field">
+      <label for="appointmentDate" data-i18n="label_appointment_date">موعد المراجعة القادمة (اختياري)</label>
+      <input type="date" id="appointmentDate">
+    </div>
+    <div class="field">
+      <label for="appointmentNote" data-i18n="label_appointment_note">ملاحظة عن الموعد (اختياري)</label>
+      <input type="text" id="appointmentNote" placeholder="مثال: تحليل دم قبل الموعد" data-i18n-ph="ph_appointment_note">
+    </div>
+  </div>
+
+  <div class="field-group fg-alarm">
+    <h3><span class="dot"></span><span data-i18n="fg_alarm_title">منبّه يومي</span></h3>
+    <div id="alarmList"></div>
+    <button type="button" id="addAlarmBtn" class="save-btn" style="background:var(--alarm); font-size:19px; padding:16px; margin-top:4px;" data-i18n="add_alarm_btn">+ إضافة منبّه جديد</button>
+
+    <div class="field" style="margin-top:18px;">
+      <label for="alarmSoundSelect" data-i18n="label_alarm_sound">نغمة كل التنبيهات (دواء، طبيب، منبّه)</label>
+      <select id="alarmSoundSelect">
+        <option value="classic" data-i18n="sound_classic">نغمة عادية</option>
+        <option value="gentle" data-i18n="sound_gentle">نغمة هادئة</option>
+        <option value="urgent" data-i18n="sound_urgent">نغمة قوية (تكرار سريع)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="alarmVolumeRange"><span data-i18n="label_volume">درجة الصوت:</span> <span id="alarmVolumeValue">70%</span></label>
+      <input type="range" id="alarmVolumeRange" min="0" max="100" value="70">
+    </div>
+    <button type="button" id="testAlarmSoundBtn" class="save-btn" style="background:var(--doctor); font-size:19px; padding:16px; margin-top:6px;" data-i18n="test_sound_btn">🔊 تجربة الصوت</button>
+  </div>
+
+  <div class="field-group fg-medicine">
+    <h3><span class="dot"></span><span data-i18n="fg_medicine_title">تذكيرات الدواء</span></h3>
+    <div id="medList"></div>
+    <button type="button" id="addMedBtn" class="save-btn" style="background:var(--medicine); font-size:19px; padding:16px; margin-top:4px;" data-i18n="add_med_btn">+ إضافة موعد جديد</button>
+    <div style="font-size:18px; color:var(--ink-soft); margin-top:12px; line-height:1.7; font-weight:500;" data-i18n="med_alert_note">عند حلول الوقت، ستظهر شاشة وامضة تلقائيًا تعرض اسم الدواء والجرعة وصورته (إن أُضيفت).</div>
+    <div class="field" id="notifPermField" style="margin-top:14px;">
+      <label data-i18n="label_notif">إشعارات التذكير</label>
+      <button type="button" id="enableNotifBtn" class="save-btn" style="background:var(--doctor); font-size:19px; padding:16px;" data-i18n="enable_notif_btn">تفعيل إشعار وقت الدواء</button>
+      <div id="notifStatus" style="font-size:19px; color:var(--ink); margin-top:10px; line-height:1.7; font-weight:500;"></div>
+    </div>
+  </div>
+
+  <div class="field-group fg-emergency">
+    <h3><span class="dot"></span><span data-i18n="fg_activity_title">مراقبة النشاط</span></h3>
+    <button type="button" id="viewActivityBtn" class="save-btn" style="background:var(--ink); font-size:19px; padding:16px;" data-i18n="view_activity_btn">عرض نشاط اليوم</button>
+  </div>
+
+  <div class="save-bar">
+    <button class="save-btn" id="saveSettingsBtn" data-i18n="save_btn">حفظ</button>
+    <div class="saved-flash" id="savedFlash" data-i18n="saved_flash">تم الحفظ ✓</div>
+  </div>
+</div>
+
+<!-- Today's medications screen -->
+<div id="medsScreen">
+  <div class="settings-header">
+    <button class="back-btn" id="medsBackBtn" aria-label="رجوع" data-i18n-aria="back_aria">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#23241F" stroke-width="2.2"><path d="m15 6-6 6 6 6"/></svg>
+    </button>
+    <h1 data-i18n="meds_today_title">دواء اليوم</h1>
+  </div>
+  <div id="medsTodayList"></div>
+  <button type="button" id="printMedsBtn" class="save-btn" style="background:var(--doctor); font-size:19px; padding:16px; margin-top:6px;" data-i18n="print_meds_btn">🖨️ طباعة ملخّص للطبيب</button>
+</div>
+
+<!-- Family activity view (local, on this device) -->
+<div id="activityScreen">
+  <div class="settings-header">
+    <button class="back-btn" id="activityBackBtn" aria-label="رجوع" data-i18n-aria="back_aria">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#23241F" stroke-width="2.2"><path d="m15 6-6 6 6 6"/></svg>
+    </button>
+    <h1 data-i18n="activity_title">نشاط اليوم</h1>
+  </div>
+  <div class="settings-note" data-i18n="activity_note">هذا السجل محفوظ على هذا الجهاز فقط حاليًا — مزامنته مباشرة مع جهاز الابن/الابنة خطوة قادمة تحتاج ربط سحابي.</div>
+  <div id="activityList"></div>
+</div>
+
+<!-- Active alert overlay: fires automatically at medicine/doctor time -->
+<div class="med-alert-overlay" id="medAlertOverlay">
+  <div class="med-alert-card">
+    <div class="med-alert-icon" id="medAlertIcon">💊</div>
+    <div class="med-alert-heading" id="medAlertHeading"></div>
+    <div class="med-alert-items" id="medAlertItems"></div>
+    <div class="med-alert-time" id="medAlertTime"></div>
+    <button class="med-alert-btn secondary" id="medAlertCloseBtn" data-i18n="alert_close_btn">إغلاق</button>
+  </div>
+</div>
+
+<!-- Confirmation sheet -->
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="icon-big ok"><svg viewBox="0 0 24 24" fill="none" stroke="#2F6B4F" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></div>
+    <h2 id="sheetTitle" data-i18n="sheet_default_title">تم الإرسال</h2>
+    <p id="sheetText" data-i18n="sheet_default_text">تم إرسال موقعك وطلب المساعدة.</p>
+    <button id="sheetClose" data-i18n="sheet_ok_btn">حسنًا</button>
+  </div>
+</div>
+
+<script>
+  // ============ Firebase (family pairing + alerts) ============
+  const firebaseConfig = {
+    apiKey: "AIzaSyDaxT0qSuhlni03zesx62AkgAqNsoM-9w0",
+    authDomain: "sahl-app-drchoucha.firebaseapp.com",
+    projectId: "sahl-app-drchoucha",
+    storageBucket: "sahl-app-drchoucha.firebasestorage.app",
+    messagingSenderId: "1062067885405",
+    appId: "1:1062067885405:web:94c9199bd2d828511484b4"
+  };
+  const FCM_VAPID_KEY = "BPX1-pNeKgQjaQfskXSzmXO0i-1h8ucEaTfFIGOtlmQFiCB4lpKWXoBC6L00K9y1wptM_IeV1ojSAvzegDfbkD4";
+  let fbApp = null, db = null, familyAlertsUnsub = null;
+  function fb(){
+    if (!fbApp){ fbApp = firebase.initializeApp(firebaseConfig); db = firebase.firestore(); }
+    return db;
+  }
+  function genPairingCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
+    let code = '';
+    for (let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+    return code;
+  }
+  // Elderly device: create/reuse this device's family pairing code
+  async function ensurePairingCode(){
+    if (settings.familyCode) return settings.familyCode;
+    const code = genPairingCode();
+    try{
+      await fb().collection('families').doc(code).set({
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        elderlyName: settings.familyName || ''
+      });
+      settings.familyCode = code;
+      saveSettings(settings);
+      return code;
+    }catch(e){ console.error('pairing code creation failed', e); return null; }
+  }
+  // Emergency: write an alert doc the family device is listening to
+  async function sendFamilyAlert(kind, extra){
+    if (!settings.familyCode) return;
+    try{
+      await fb().collection('families').doc(settings.familyCode)
+        .collection('alerts').add({
+          kind: kind, // 'emergency' | 'missed_med'
+          extra: extra || '',
+          at: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    }catch(e){ console.error('sendFamilyAlert failed', e); }
+  }
+  // Family device: join using the code shown on the elderly device, then listen live
+  async function joinFamilyCode(code, onAlert){
+    code = (code||'').trim().toUpperCase();
+    if (!code) return false;
+    const doc = await fb().collection('families').doc(code).get();
+    if (!doc.exists) return false;
+    localStorage.setItem('sahl_family_join_code', code);
+    if (familyAlertsUnsub) familyAlertsUnsub();
+    familyAlertsUnsub = fb().collection('families').doc(code)
+      .collection('alerts').orderBy('at','desc').limit(1)
+      .onSnapshot(snap=>{
+        snap.docChanges().forEach(ch=>{
+          if (ch.type === 'added') onAlert(ch.doc.data());
+        });
+      });
+    return true;
+  }
+
+  // ============ i18n (العربية / Français / English) ============
+  const translations = {
+    ar: {
+      settings_aria:"الإعدادات", back_aria:"رجوع",
+      greeting_morning:"صباح الخير", greeting_evening:"مساء الخير", greeting_hello:"مرحبًا",
+      btn_emergency_label:"طوارئ", btn_emergency_sub:"اضغط مطولًا لإرسال التنبيه",
+      btn_family_label:"اتصل بالعائلة", btn_medicine_label:"دواء اليوم", btn_doctor_label:"اتصل بالطبيب",
+      hint_home:"اضغط على أي زر للاستخدام",
+      not_set_yet:"لم يتم تسجيل رقم بعد", no_reminders_yet:"لا توجد تذكيرات بعد",
+      settings_title:"الإعدادات",
+      settings_note:"هذه الشاشة مخصّصة للابن أو الابنة — لإعداد أرقام الاتصال ومواعيد الدواء لمرة واحدة.",
+      fg_family_title:"جهة اتصال العائلة", label_name_shown:"الاسم (يظهر على الزر)",
+      ph_family_name:"مثال: ابني أحمد", label_phone:"رقم الهاتف",
+      fg_emergency_title:"معلومات طبية للطوارئ",
+      emergency_info_note:"تُرفق تلقائيًا مع رسالة الطوارئ حتى يعرفها أي شخص يساعده فورًا.",
+      label_blood_type:"فصيلة الدم", ph_blood_type:"مثال: O+",
+      label_allergies:"حساسية من أدوية", ph_allergies:"مثال: البنسلين",
+      label_chronic:"أمراض مزمنة", ph_chronic:"مثال: سكري، ضغط",
+      label_ice_notes:"ملاحظات إضافية", ph_ice_notes:"أي معلومة مهمة أخرى",
+      fg_doctor_title:"جهة اتصال الطبيب", ph_doctor_name:"مثال: د. أحمد",
+      label_appointment_date:"موعد المراجعة القادمة (اختياري)",
+      label_appointment_note:"ملاحظة عن الموعد (اختياري)", ph_appointment_note:"مثال: تحليل دم قبل الموعد",
+      fg_alarm_title:"منبّه يومي", add_alarm_btn:"+ إضافة منبّه جديد",
+      label_alarm_sound:"نغمة كل التنبيهات (دواء، طبيب، منبّه)",
+      sound_classic:"نغمة عادية", sound_gentle:"نغمة هادئة", sound_urgent:"نغمة قوية (تكرار سريع)",
+      label_volume:"درجة الصوت:", test_sound_btn:"🔊 تجربة الصوت",
+      fg_medicine_title:"تذكيرات الدواء", add_med_btn:"+ إضافة موعد جديد",
+      med_alert_note:"عند حلول الوقت، ستظهر شاشة وامضة تلقائيًا تعرض اسم الدواء والجرعة وصورته (إن أُضيفت).",
+      label_notif:"إشعارات التذكير", enable_notif_btn:"تفعيل إشعار وقت الدواء",
+      fg_activity_title:"مراقبة النشاط", view_activity_btn:"عرض نشاط اليوم",
+      save_btn:"حفظ", saved_flash:"تم الحفظ ✓",
+      meds_today_title:"دواء اليوم", print_meds_btn:"🖨️ طباعة ملخّص للطبيب",
+      activity_title:"نشاط اليوم",
+      activity_note:"هذا السجل محفوظ على هذا الجهاز فقط حاليًا — مزامنته مباشرة مع جهاز الابن/الابنة خطوة قادمة تحتاج ربط سحابي.",
+      alert_close_btn:"إغلاق", sheet_ok_btn:"حسنًا",
+      sheet_default_title:"تم الإرسال", sheet_default_text:"تم إرسال موقعك وطلب المساعدة.",
+      app_name:"سهل", lang_label:"اللغة",
+      calling_prefix:"اتصال بـ ", appt_suffix:" — الموعد: ", next_reminder_prefix:"التذكير القادم: ",
+      appt_today:"موعد الطبيب اليوم", appt_tomorrow:"موعد الطبيب غدًا", appt_in_days:"موعد الطبيب بعد {d} أيام",
+      not_setup_title:"لم يتم الإعداد بعد",
+      family_not_setup_text:"اطلب من ابنك أو ابنتك إضافة رقم الهاتف من شاشة الإعدادات.",
+      doctor_not_setup_text:"اطلب من ابنك أو ابنتك إضافة رقم الطبيب من شاشة الإعدادات.",
+      notif_not_supported:"المتصفح لا يدعم الإشعارات على هذا الجهاز.",
+      notif_enabled:"الإشعارات مفعّلة ✓",
+      notif_denied:"تم رفض الإذن — يجب تفعيله من إعدادات المتصفح يدويًا.",
+      notif_not_enabled:"لم يتم التفعيل بعد.",
+      med_taken_log:"أخذ الدواء",
+      low_stock_title:"اقترب نفاد الدواء",
+      low_stock_text:"{name} — تبقّى {n} فقط. اطلب من العائلة تجديده قريبًا.",
+      med_default_name:"دواء",
+      taken_check:"تم ✓", taken_btn_hero:"تم الأخذ ✓", taken_btn_list:"تم الأخذ",
+      med_due_multi:"حان وقت {n} أدوية", med_due_single:"حان وقت الدواء",
+      time_at_prefix:"الساعة ",
+      appt_with_name:"موعد مع {name}", doctor_appointment:"موعد الطبيب",
+      missed_heading:"لم يُؤخذ الدواء بعد: {name}",
+      missed_body:"مرّ وقت طويل على موعده ({time}). هل تريد إخطار العائلة؟",
+      notify_family_btn:"📨 إخطار العائلة الآن",
+      alarm_due:"حان وقت المنبّه",
+      sms_missed_msg:'تنبيه من تطبيق سهل: لم يُؤخذ دواء "{name}" (موعده {time}) بعد.',
+      image_too_big_title:"الصورة كبيرة جدًا", image_too_big_text:"الرجاء اختيار صورة أصغر حجمًا.",
+      ph_med_name:"اسم الدواء", ph_med_dose:"الجرعة (مثال: قرص واحد بعد الأكل)",
+      ph_med_remaining:"الكمية المتبقية (اختياري)",
+      change_photo:"📷 تغيير صورة الدواء", add_photo:"📷 إضافة صورة الدواء (اختياري)",
+      no_meds_yet:'لا توجد مواعيد بعد — اضغط "إضافة موعد جديد" أدناه.',
+      ph_alarm_name:"اسم المنبّه (مثال: الاستيقاظ)", no_alarms_yet:"لا توجد منبّهات بعد.",
+      no_activity_yet:"لا يوجد نشاط مسجّل بعد.",
+      emergency_sms_prefix:"تنبيه طوارئ من تطبيق سهل: أحتاج مساعدة. ",
+      blood_type_label_sms:" | فصيلة الدم: ", allergy_label_sms:" | حساسية: ",
+      chronic_label_sms:" | أمراض مزمنة: ", note_label_sms:" | ملاحظة: ",
+      location_label:"الموقع: ", location_unavailable:"(تعذّر تحديد الموقع)",
+      emergency_sent_title:"تم فتح رسالة الطوارئ", emergency_sent_text:"أرسل الرسالة لإعلام العائلة فورًا.",
+      no_emergency_number_text:"لا يوجد رقم طوارئ مسجّل. اطلب من العائلة إضافته من الإعدادات.",
+      print_title:"ملخّص الأدوية — تطبيق سهل", print_h1:"ملخّص الأدوية — تطبيق سهل",
+      print_date_label:"بتاريخ: ", print_th_name:"الدواء", print_th_dose:"الجرعة", print_th_time:"الوقت",
+      print_doctor_label:"الطبيب المتابِع: ", print_allergy_label:"حساسية من: ",
+      print_chronic_label:"أمراض مزمنة: ", print_no_meds:"لا توجد أدوية مسجّلة.",
+      print_fail_title:"تعذّرت الطباعة", print_fail_text:"الرجاء السماح بالنوافذ المنبثقة من إعدادات المتصفح.",
+      no_meds_today:"لا توجد مواعيد مسجّلة بعد. اطلب من العائلة إضافتها من الإعدادات.", remaining_label:" — تبقّى "
+    },
+    fr: {
+      settings_aria:"Paramètres", back_aria:"Retour",
+      greeting_morning:"Bonjour", greeting_evening:"Bonsoir", greeting_hello:"Bonjour",
+      btn_emergency_label:"Urgence", btn_emergency_sub:"Appuyez longuement pour alerter",
+      btn_family_label:"Appeler la famille", btn_medicine_label:"Médicaments du jour", btn_doctor_label:"Appeler le médecin",
+      hint_home:"Appuyez sur un bouton pour l'utiliser",
+      not_set_yet:"Aucun numéro enregistré", no_reminders_yet:"Aucun rappel pour le moment",
+      settings_title:"Paramètres",
+      settings_note:"Cet écran est destiné au fils ou à la fille — pour configurer les numéros et les horaires des médicaments une seule fois.",
+      fg_family_title:"Contact familial", label_name_shown:"Nom (affiché sur le bouton)",
+      ph_family_name:"Ex : mon fils Ahmed", label_phone:"Numéro de téléphone",
+      fg_emergency_title:"Infos médicales d'urgence",
+      emergency_info_note:"Jointes automatiquement au message d'urgence pour informer toute personne qui l'aide immédiatement.",
+      label_blood_type:"Groupe sanguin", ph_blood_type:"Ex : O+",
+      label_allergies:"Allergies médicamenteuses", ph_allergies:"Ex : pénicilline",
+      label_chronic:"Maladies chroniques", ph_chronic:"Ex : diabète, tension",
+      label_ice_notes:"Notes supplémentaires", ph_ice_notes:"Toute autre information importante",
+      fg_doctor_title:"Contact du médecin", ph_doctor_name:"Ex : Dr Ahmed",
+      label_appointment_date:"Prochain rendez-vous (optionnel)",
+      label_appointment_note:"Note sur le rendez-vous (optionnel)", ph_appointment_note:"Ex : analyse de sang avant le rendez-vous",
+      fg_alarm_title:"Alarme quotidienne", add_alarm_btn:"+ Ajouter une alarme",
+      label_alarm_sound:"Sonnerie de toutes les alertes (médicament, médecin, alarme)",
+      sound_classic:"Sonnerie classique", sound_gentle:"Sonnerie douce", sound_urgent:"Sonnerie forte (répétition rapide)",
+      label_volume:"Volume :", test_sound_btn:"🔊 Tester le son",
+      fg_medicine_title:"Rappels de médicaments", add_med_btn:"+ Ajouter un rappel",
+      med_alert_note:"À l'heure dite, un écran clignotant apparaîtra automatiquement avec le nom du médicament, la dose et sa photo (si ajoutée).",
+      label_notif:"Notifications de rappel", enable_notif_btn:"Activer les notifications",
+      fg_activity_title:"Suivi de l'activité", view_activity_btn:"Voir l'activité du jour",
+      save_btn:"Enregistrer", saved_flash:"Enregistré ✓",
+      meds_today_title:"Médicaments du jour", print_meds_btn:"🖨️ Imprimer le résumé pour le médecin",
+      activity_title:"Activité du jour",
+      activity_note:"Ce journal est actuellement enregistré uniquement sur cet appareil — la synchronisation directe avec l'appareil du fils/de la fille est une prochaine étape nécessitant une connexion au cloud.",
+      alert_close_btn:"Fermer", sheet_ok_btn:"D'accord",
+      sheet_default_title:"Envoyé", sheet_default_text:"Votre position et votre demande d'aide ont été envoyées.",
+      app_name:"Sahl", lang_label:"Langue",
+      calling_prefix:"Appel à ", appt_suffix:" — Rendez-vous : ", next_reminder_prefix:"Prochain rappel : ",
+      appt_today:"Rendez-vous médecin aujourd'hui", appt_tomorrow:"Rendez-vous médecin demain", appt_in_days:"Rendez-vous médecin dans {d} jours",
+      not_setup_title:"Pas encore configuré",
+      family_not_setup_text:"Demandez à votre fils ou fille d'ajouter le numéro de téléphone dans les paramètres.",
+      doctor_not_setup_text:"Demandez à votre fils ou fille d'ajouter le numéro du médecin dans les paramètres.",
+      notif_not_supported:"Le navigateur ne prend pas en charge les notifications sur cet appareil.",
+      notif_enabled:"Notifications activées ✓",
+      notif_denied:"Autorisation refusée — activez-la manuellement dans les paramètres du navigateur.",
+      notif_not_enabled:"Pas encore activé.",
+      med_taken_log:"Médicament pris",
+      low_stock_title:"Stock bientôt épuisé",
+      low_stock_text:"{name} — il ne reste que {n}. Demandez à la famille d'en racheter bientôt.",
+      med_default_name:"Médicament",
+      taken_check:"Pris ✓", taken_btn_hero:"Pris ✓", taken_btn_list:"Pris",
+      med_due_multi:"C'est l'heure de {n} médicaments", med_due_single:"C'est l'heure du médicament",
+      time_at_prefix:"à ",
+      appt_with_name:"Rendez-vous avec {name}", doctor_appointment:"Rendez-vous médecin",
+      missed_heading:"Médicament non pris : {name}",
+      missed_body:"Beaucoup de temps s'est écoulé depuis l'heure prévue ({time}). Voulez-vous prévenir la famille ?",
+      notify_family_btn:"📨 Prévenir la famille maintenant",
+      alarm_due:"C'est l'heure de l'alarme",
+      sms_missed_msg:'Alerte de l\'application Sahl : le médicament "{name}" (prévu à {time}) n\'a pas encore été pris.',
+      image_too_big_title:"Image trop grande", image_too_big_text:"Veuillez choisir une image plus petite.",
+      ph_med_name:"Nom du médicament", ph_med_dose:"Dose (ex : un comprimé après le repas)",
+      ph_med_remaining:"Quantité restante (optionnel)",
+      change_photo:"📷 Changer la photo", add_photo:"📷 Ajouter une photo (optionnel)",
+      no_meds_yet:'Aucun rappel pour le moment — appuyez sur "Ajouter un rappel" ci-dessous.',
+      ph_alarm_name:"Nom de l'alarme (ex : réveil)", no_alarms_yet:"Aucune alarme pour le moment.",
+      no_activity_yet:"Aucune activité enregistrée pour le moment.",
+      emergency_sms_prefix:"Alerte d'urgence de l'application Sahl : j'ai besoin d'aide. ",
+      blood_type_label_sms:" | Groupe sanguin : ", allergy_label_sms:" | Allergies : ",
+      chronic_label_sms:" | Maladies chroniques : ", note_label_sms:" | Note : ",
+      location_label:"Position : ", location_unavailable:"(position indisponible)",
+      emergency_sent_title:"Message d'urgence ouvert", emergency_sent_text:"Envoyez le message pour prévenir votre famille immédiatement.",
+      no_emergency_number_text:"Aucun numéro d'urgence enregistré. Demandez à la famille de l'ajouter dans les paramètres.",
+      print_title:"Résumé des médicaments — Sahl", print_h1:"Résumé des médicaments — Sahl",
+      print_date_label:"Date : ", print_th_name:"Médicament", print_th_dose:"Dose", print_th_time:"Heure",
+      print_doctor_label:"Médecin traitant : ", print_allergy_label:"Allergies : ",
+      print_chronic_label:"Maladies chroniques : ", print_no_meds:"Aucun médicament enregistré.",
+      print_fail_title:"Impression impossible", print_fail_text:"Veuillez autoriser les fenêtres pop-up dans les paramètres du navigateur.",
+      no_meds_today:"Aucun rappel enregistré. Demandez à la famille de l'ajouter dans les paramètres.", remaining_label:" — reste "
+    },
+    en: {
+      settings_aria:"Settings", back_aria:"Back",
+      greeting_morning:"Good morning", greeting_evening:"Good evening", greeting_hello:"Hello",
+      btn_emergency_label:"Emergency", btn_emergency_sub:"Press and hold to send alert",
+      btn_family_label:"Call family", btn_medicine_label:"Today's medicine", btn_doctor_label:"Call doctor",
+      hint_home:"Tap any button to use it",
+      not_set_yet:"No number saved yet", no_reminders_yet:"No reminders yet",
+      settings_title:"Settings",
+      settings_note:"This screen is for a family member — to set up contact numbers and medicine times once.",
+      fg_family_title:"Family contact", label_name_shown:"Name (shown on button)",
+      ph_family_name:"e.g. my son Ahmed", label_phone:"Phone number",
+      fg_emergency_title:"Emergency medical info",
+      emergency_info_note:"Automatically attached to the emergency message so anyone helping knows right away.",
+      label_blood_type:"Blood type", ph_blood_type:"e.g. O+",
+      label_allergies:"Medication allergies", ph_allergies:"e.g. penicillin",
+      label_chronic:"Chronic conditions", ph_chronic:"e.g. diabetes, hypertension",
+      label_ice_notes:"Additional notes", ph_ice_notes:"Any other important info",
+      fg_doctor_title:"Doctor contact", ph_doctor_name:"e.g. Dr. Ahmed",
+      label_appointment_date:"Next appointment (optional)",
+      label_appointment_note:"Appointment note (optional)", ph_appointment_note:"e.g. blood test before appointment",
+      fg_alarm_title:"Daily alarm", add_alarm_btn:"+ Add new alarm",
+      label_alarm_sound:"Sound for all alerts (medicine, doctor, alarm)",
+      sound_classic:"Classic tone", sound_gentle:"Gentle tone", sound_urgent:"Strong tone (fast repeat)",
+      label_volume:"Volume:", test_sound_btn:"🔊 Test sound",
+      fg_medicine_title:"Medicine reminders", add_med_btn:"+ Add new reminder",
+      med_alert_note:"When the time comes, a flashing screen will automatically appear showing the medicine name, dose, and photo (if added).",
+      label_notif:"Reminder notifications", enable_notif_btn:"Enable medicine notifications",
+      fg_activity_title:"Activity monitoring", view_activity_btn:"View today's activity",
+      save_btn:"Save", saved_flash:"Saved ✓",
+      meds_today_title:"Today's medicine", print_meds_btn:"🖨️ Print summary for doctor",
+      activity_title:"Today's activity",
+      activity_note:"This log is currently saved on this device only — direct syncing with the son/daughter's device is a future step that needs a cloud connection.",
+      alert_close_btn:"Close", sheet_ok_btn:"OK",
+      sheet_default_title:"Sent", sheet_default_text:"Your location and help request were sent.",
+      app_name:"Sahl", lang_label:"Language",
+      calling_prefix:"Call ", appt_suffix:" — Appointment: ", next_reminder_prefix:"Next reminder: ",
+      appt_today:"Doctor appointment today", appt_tomorrow:"Doctor appointment tomorrow", appt_in_days:"Doctor appointment in {d} days",
+      not_setup_title:"Not set up yet",
+      family_not_setup_text:"Ask your son or daughter to add the phone number in Settings.",
+      doctor_not_setup_text:"Ask your son or daughter to add the doctor's number in Settings.",
+      notif_not_supported:"This browser doesn't support notifications on this device.",
+      notif_enabled:"Notifications enabled ✓",
+      notif_denied:"Permission denied — enable it manually in browser settings.",
+      notif_not_enabled:"Not enabled yet.",
+      med_taken_log:"Medicine taken",
+      low_stock_title:"Running low on medicine",
+      low_stock_text:"{name} — only {n} left. Ask family to refill soon.",
+      med_default_name:"Medicine",
+      taken_check:"Done ✓", taken_btn_hero:"Taken ✓", taken_btn_list:"Taken",
+      med_due_multi:"Time for {n} medicines", med_due_single:"Time for medicine",
+      time_at_prefix:"at ",
+      appt_with_name:"Appointment with {name}", doctor_appointment:"Doctor appointment",
+      missed_heading:"Medicine not yet taken: {name}",
+      missed_body:"A long time has passed since it was due ({time}). Notify the family?",
+      notify_family_btn:"📨 Notify family now",
+      alarm_due:"Time for the alarm",
+      sms_missed_msg:'Sahl app alert: medicine "{name}" (due {time}) has not been taken yet.',
+      image_too_big_title:"Image too large", image_too_big_text:"Please choose a smaller image.",
+      ph_med_name:"Medicine name", ph_med_dose:"Dose (e.g. one tablet after eating)",
+      ph_med_remaining:"Remaining quantity (optional)",
+      change_photo:"📷 Change medicine photo", add_photo:"📷 Add medicine photo (optional)",
+      no_meds_yet:'No reminders yet — tap "Add new reminder" below.',
+      ph_alarm_name:"Alarm name (e.g. wake-up)", no_alarms_yet:"No alarms yet.",
+      no_activity_yet:"No activity logged yet.",
+      emergency_sms_prefix:"Emergency alert from Sahl app: I need help. ",
+      blood_type_label_sms:" | Blood type: ", allergy_label_sms:" | Allergies: ",
+      chronic_label_sms:" | Chronic conditions: ", note_label_sms:" | Note: ",
+      location_label:"Location: ", location_unavailable:"(location unavailable)",
+      emergency_sent_title:"Emergency message opened", emergency_sent_text:"Send the message to notify your family immediately.",
+      no_emergency_number_text:"No emergency number saved. Ask family to add it in Settings.",
+      print_title:"Medicine Summary — Sahl", print_h1:"Medicine Summary — Sahl",
+      print_date_label:"Date: ", print_th_name:"Medicine", print_th_dose:"Dose", print_th_time:"Time",
+      print_doctor_label:"Attending doctor: ", print_allergy_label:"Allergies: ",
+      print_chronic_label:"Chronic conditions: ", print_no_meds:"No medicines saved.",
+      print_fail_title:"Couldn't print", print_fail_text:"Please allow pop-up windows in browser settings.",
+      no_meds_today:"No reminders saved yet. Ask family to add them in Settings.", remaining_label:" — remaining "
+    }
+  };
+
+  function getLang(){ return (settings.lang) || 'ar'; }
+  function t(key, vars){
+    const dict = translations[getLang()] || translations.ar;
+    let str = dict[key] !== undefined ? dict[key] : (translations.ar[key] || key);
+    if (vars) Object.keys(vars).forEach(k=>{ str = str.split('{'+k+'}').join(vars[k]); });
+    return str;
+  }
+  function applyStaticTranslations(){
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+      el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph')));
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el=>{
+      el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+    });
+    document.querySelectorAll('.lang-btn').forEach(b=>{
+      b.classList.toggle('active', b.getAttribute('data-lang') === getLang());
+    });
+  }
+  function setLang(lang){
+    settings.lang = lang;
+    saveSettings(settings);
+    document.documentElement.setAttribute('lang', lang);
+    document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+    applyStaticTranslations();
+    refreshLabels();
+    renderMedList();
+    renderAlarmList();
+    updateNotifStatus();
+    if (typeof updateClock === 'function') updateClock();
+  }
+
+  // ---- HTML-escaping helper (prevents self-XSS from user-entered names/notes rendered via innerHTML) ----
+  function esc(str){
+    return String(str == null ? '' : str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // ---- Settings (stored locally on this device) ----
+  function loadSettings(){
+    try{
+      return JSON.parse(localStorage.getItem('sahl_settings') || '{}');
+    }catch(e){ return {}; }
+  }
+  function saveSettings(s){
+    localStorage.setItem('sahl_settings', JSON.stringify(s));
+  }
+  let settings = loadSettings();
+  document.documentElement.setAttribute('lang', getLang());
+  document.documentElement.setAttribute('dir', getLang() === 'ar' ? 'rtl' : 'ltr');
+  document.querySelectorAll('.lang-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ setLang(btn.getAttribute('data-lang')); screenTransition(); });
+  });
+  applyStaticTranslations();
+
+  // ---- Transition sound & flash (played when moving between screens) ----
+  let audioCtx = null;
+  function playTransitionSound(){
+    try{
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.09);
+      gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.14);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    }catch(e){ /* audio not available — ignore silently */ }
+  }
+  function flashTransition(){
+    const el = document.getElementById('transitionFlash');
+    if (!el) return;
+    el.classList.add('flash');
+    requestAnimationFrame(()=>{
+      setTimeout(()=> el.classList.remove('flash'), 40);
+    });
+  }
+  function screenTransition(){
+    playTransitionSound();
+    flashTransition();
+    if (navigator.vibrate) navigator.vibrate(12);
+  }
+
+  // ---- Clock & greeting ----
+  function updateClock(){
+    const now = new Date();
+    const h = now.getHours();
+    const hh = String(h).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    document.getElementById('clock').textContent = hh + ':' + mm;
+    let greeting = t('greeting_hello');
+    if (h < 12) greeting = t('greeting_morning');
+    else greeting = t('greeting_evening');
+    document.getElementById('hello').textContent = greeting;
+  }
+  updateClock();
+  setInterval(updateClock, 15000);
+
+  // ============ Family device join mode (?family=1) ============
+  if (new URLSearchParams(location.search).get('family') === '1'){
+    (function(){
+      const savedCode = localStorage.getItem('sahl_family_join_code');
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:fixed;inset:0;background:var(--cream);z-index:9999;padding:24px 18px;font-family:Tajawal,sans-serif;';
+      wrap.innerHTML = savedCode
+        ? '<h2 style="margin-bottom:16px;">متابعة: ' + savedCode + '</h2><div id="famStatus" style="font-size:18px;color:var(--ink-soft);">بانتظار أي تنبيه...</div>'
+        : '<h2 style="margin-bottom:16px;">أدخل رمز الاقتران</h2>' +
+          '<input id="famCodeInput" style="font-size:22px;padding:14px;width:100%;border-radius:12px;border:1.5px solid var(--line);text-align:center;letter-spacing:4px;" maxlength="6" placeholder="ABC123">' +
+          '<button id="famJoinBtn" style="margin-top:14px;width:100%;padding:14px;border:none;border-radius:12px;background:var(--medicine);color:#fff;font-size:17px;font-weight:700;">ربط</button>' +
+          '<div id="famJoinMsg" style="margin-top:10px;color:var(--danger);"></div>';
+      document.body.appendChild(wrap);
+
+      function startListening(code){
+        wrap.innerHTML = '<h2 style="margin-bottom:16px;">متابعة: ' + code + '</h2><div id="famStatus" style="font-size:18px;color:var(--ink-soft);">بانتظار أي تنبيه...</div>';
+        joinFamilyCode(code, (data)=>{
+          const statusEl = document.getElementById('famStatus');
+          const label = data.kind === 'emergency' ? '🚨 تنبيه طوارئ!' : '⚠️ دواء لم يُؤخذ';
+          if (statusEl) statusEl.innerHTML = '<div style="color:var(--danger);font-size:26px;font-weight:900;">' + label + '</div>';
+          try{ new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play(); }catch(e){}
+          if ('Notification' in window && Notification.permission === 'granted'){
+            new Notification(label, { body: 'من تطبيق سهل' });
+          }
+        });
+      }
+      if (savedCode) startListening(savedCode);
+      else {
+        document.getElementById('famJoinBtn').addEventListener('click', async ()=>{
+          const code = document.getElementById('famCodeInput').value;
+          const msg = document.getElementById('famJoinMsg');
+          msg.textContent = 'جارٍ التحقق...';
+          const ok = await joinFamilyCode(code, ()=>{});
+          if (ok) startListening(code.trim().toUpperCase());
+          else msg.textContent = 'رمز غير صحيح.';
+        });
+      }
+      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+    })();
+  }
+
+  // ---- Activity log (local to this device, for family view) ----
+  function todayKey(){
+    const d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  }
+  function timeNow(){
+    const d = new Date();
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  function logActivity(type, label){
+    settings.activityLog = settings.activityLog || [];
+    settings.activityLog.unshift({ type, label, time: timeNow(), day: todayKey() });
+    settings.activityLog = settings.activityLog.slice(0, 40); // keep it small
+    saveSettings(settings);
+  }
+  logActivity('open', getLang()==='ar' ? 'فتح التطبيق' : (getLang()==='fr' ? "Ouverture de l'application" : 'App opened'));
+
+  function nextMedTime(){
+    if (!settings.medications || settings.medications.length === 0) return null;
+    const now = new Date();
+    const nowMin = now.getHours()*60 + now.getMinutes();
+    let best = null;
+    settings.medications.forEach(m=>{
+      if (!m.time) return;
+      const [h,mi] = m.time.split(':').map(Number);
+      let diff = (h*60+mi) - nowMin;
+      if (diff < 0) diff += 24*60;
+      if (best === null || diff < best.diff) best = { diff, med: m };
+    });
+    return best ? best.med : null;
+  }
+
+  function daysUntil(dateStr){
+    if (!dateStr) return null;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const target = new Date(dateStr + 'T00:00:00');
+    const diffMs = target - today;
+    return Math.round(diffMs / (1000*60*60*24));
+  }
+
+  // يمسح موعد الطبيب تلقائيًا في اليوم التالي لمروره (يوم الموعد نفسه يبقى ظاهرًا)
+  function clearPassedAppointment(){
+    if (!settings.appointmentDate) return;
+    const d = daysUntil(settings.appointmentDate);
+    if (d !== null && d < 0){
+      settings.appointmentDate = '';
+      settings.appointmentNote = '';
+      settings.appointmentNotifiedOn = null;
+      saveSettings(settings);
+    }
+  }
+
+  function updateAppointmentBanner(){
+    clearPassedAppointment();
+    const banner = document.getElementById('appointmentBanner');
+    const textEl = document.getElementById('appointmentBannerText');
+    const d = daysUntil(settings.appointmentDate);
+    if (d === null || d < 0 || d > 3){
+      banner.style.display = 'none';
+      return;
+    }
+    let msg;
+    if (d === 0) msg = t('appt_today');
+    else if (d === 1) msg = t('appt_tomorrow');
+    else msg = t('appt_in_days', {d:d});
+    if (settings.appointmentNote) msg += ' — ' + settings.appointmentNote;
+    textEl.textContent = msg;
+    banner.style.display = 'flex';
+  }
+
+  function refreshLabels(){
+    document.getElementById('familySub').textContent = settings.familyName
+      ? (t('calling_prefix') + settings.familyName) : t('not_set_yet');
+    let docText = settings.doctorName ? (t('calling_prefix') + settings.doctorName) : t('not_set_yet');
+    if (settings.appointmentDate) docText += t('appt_suffix') + settings.appointmentDate;
+    document.getElementById('doctorSub').textContent = docText;
+    const next = nextMedTime();
+    document.getElementById('medSub').textContent = next
+      ? (t('next_reminder_prefix') + (next.name ? next.name + ' — ' : '') + next.time)
+      : t('no_reminders_yet');
+    updateAppointmentBanner();
+  }
+  refreshLabels();
+
+  function showSheet(title, text){
+    document.getElementById('sheetTitle').textContent = title;
+    document.getElementById('sheetText').textContent = text;
+    document.getElementById('overlay').classList.add('show');
+    screenTransition();
+  }
+  document.getElementById('sheetClose').addEventListener('click', ()=>{
+    document.getElementById('overlay').classList.remove('show');
+  });
+
+  // ---- Family call ----
+  document.getElementById('familyBtn').addEventListener('click', ()=>{
+    if (settings.familyPhone){
+      window.location.href = 'tel:' + settings.familyPhone;
+    } else {
+      showSheet(t('not_setup_title'), t('family_not_setup_text'));
+    }
+  });
+
+  // ---- Doctor call ----
+  document.getElementById('doctorBtn').addEventListener('click', ()=>{
+    if (settings.doctorPhone){
+      window.location.href = 'tel:' + settings.doctorPhone;
+    } else {
+      showSheet(t('not_setup_title'), t('doctor_not_setup_text'));
+    }
+  });
+
+  // ---- Medicine reminder: opens "today's medications" screen ----
+  document.getElementById('medicineBtn').addEventListener('click', openMedsScreen);
+
+  // ---- Notifications & medication reminder ----
+  // ملاحظة مهمة: هذا الإشعار يعتمد على أن المتصفح/التطبيق يبقى يعمل في الخلفية.
+  // على أغلب أجهزة أندرويد هذا يعمل بشكل معقول إذا أُضيف التطبيق للشاشة الرئيسية،
+  // لكن التذكير المضمون 100% (حتى لو أُغلق التطبيق تمامًا) يحتاج تغليف Android حقيقي (TWA) لاحقًا.
+
+  let swRegistration = null;
+  if ('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').then((reg)=>{ swRegistration = reg; }).catch(()=>{});
+  }
+
+  function updateNotifStatus(){
+    const el = document.getElementById('notifStatus');
+    if (!('Notification' in window)){
+      el.textContent = t('notif_not_supported');
+    } else if (Notification.permission === 'granted'){
+      el.textContent = t('notif_enabled');
+    } else if (Notification.permission === 'denied'){
+      el.textContent = t('notif_denied');
+    } else {
+      el.textContent = t('notif_not_enabled');
+    }
+  }
+  updateNotifStatus();
+
+  document.getElementById('enableNotifBtn').addEventListener('click', ()=>{
+    if (!('Notification' in window)) return;
+    Notification.requestPermission().then(updateNotifStatus);
+  });
+
+  // ---- Active flashing alert (appears in-app the moment a medicine/doctor/alarm time hits) ----
+  const medAlertOverlay = document.getElementById('medAlertOverlay');
+  const ALERT_AUTO_HIDE_MS = 30000; // مدة الوميض والتنبيه: نصف دقيقة
+  let alertAutoHideTimer = null;
+  let alertSoundTimer = null;
+
+  // ---- محرك صوت التنبيه: نغمة قابلة للاختيار + درجة صوت قابلة للضبط ----
+  let alertAudioCtx = null;
+  function getAlertAudioCtx(){
+    if (!alertAudioCtx){
+      try{ alertAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ return null; }
+    }
+    if (alertAudioCtx.state === 'suspended') alertAudioCtx.resume();
+    return alertAudioCtx;
+  }
+  function playAlertTone(overrideSound, overrideVolume){
+    const ctx = getAlertAudioCtx();
+    if (!ctx) return;
+    const soundKey = overrideSound || settings.alarmSound || 'classic';
+    const volumePct = (typeof overrideVolume === 'number') ? overrideVolume : ((typeof settings.alarmVolume === 'number') ? settings.alarmVolume : 70);
+    const gainMax = (volumePct / 100) * 0.35; // سقف آمن لتفادي التشويش حتى عند 100%
+    if (gainMax <= 0) return;
+    const t0 = ctx.currentTime;
+    function beep(freq, start, dur, peak){
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t0 + start);
+      gain.gain.setValueAtTime(0.0001, t0 + start);
+      gain.gain.exponentialRampToValueAtTime(peak, t0 + start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + start + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0 + start);
+      osc.stop(t0 + start + dur + 0.05);
+    }
+    if (soundKey === 'gentle'){
+      beep(660, 0, 0.5, gainMax);
+      beep(880, 0.35, 0.6, gainMax * 0.85);
+    } else if (soundKey === 'urgent'){
+      beep(1000, 0, 0.15, gainMax); beep(1000, 0.2, 0.15, gainMax);
+      beep(1000, 0.4, 0.15, gainMax); beep(1000, 0.6, 0.15, gainMax);
+    } else {
+      beep(740, 0, 0.25, gainMax);
+      beep(990, 0.3, 0.35, gainMax);
+    }
+  }
+  function startAlertSound(){
+    clearInterval(alertSoundTimer);
+    playAlertTone();
+    alertSoundTimer = setInterval(playAlertTone, 4000);
+  }
+  function stopAlertSound(){
+    clearInterval(alertSoundTimer);
+    alertSoundTimer = null;
+  }
+
+  function markMedicationTaken(idx, name){
+    settings.medTaken = settings.medTaken || {};
+    const tk = todayKey();
+    settings.medTaken[tk] = settings.medTaken[tk] || {};
+    settings.medTaken[tk][idx] = true;
+    logActivity('med_taken', t('med_taken_log') + (name ? (' — ' + name) : ''));
+
+    const med = settings.medications && settings.medications[idx];
+    if (med && typeof med.remaining === 'number' && med.remaining > 0){
+      med.remaining -= 1;
+      settings.medLowStockNotified = settings.medLowStockNotified || {};
+      if (med.remaining <= 5 && !settings.medLowStockNotified[idx]){
+        settings.medLowStockNotified[idx] = true;
+        setTimeout(()=>{
+          showSheet(t('low_stock_title'), t('low_stock_text', {name:(med.name || t('med_default_name')), n:med.remaining}));
+        }, 600);
+      }
+    }
+    saveSettings(settings);
+  }
+
+  function renderMedAlertItems(meds){
+    const container = document.getElementById('medAlertItems');
+    container.innerHTML = '';
+    const tKey = todayKey();
+
+    if (meds.length === 1){
+      const m = meds[0];
+      const already = !!(settings.medTaken && settings.medTaken[tKey] && settings.medTaken[tKey][m.idx]);
+      const wrap = document.createElement('div');
+      wrap.className = 'med-alert-hero';
+      wrap.innerHTML =
+        (m.photo ? ('<img class="med-alert-hero-photo" src="' + m.photo + '" alt="">') : '<div class="med-alert-hero-photo placeholder">💊</div>') +
+        '<div class="med-alert-hero-name">' + esc(m.name || t('med_default_name')) + '</div>' +
+        (m.dose ? ('<div class="med-alert-hero-dose">' + esc(m.dose) + '</div>') : '') +
+        '<button type="button" class="med-alert-btn hero-take">' + (already ? t('taken_check') : t('taken_btn_hero')) + '</button>';
+      container.appendChild(wrap);
+      const heroBtn = wrap.querySelector('.hero-take');
+      if (already){ heroBtn.disabled = true; heroBtn.style.opacity = '0.6'; }
+      heroBtn.addEventListener('click', ()=>{
+        markMedicationTaken(m.idx, m.name);
+        hideMedAlert();
+      });
+      return;
+    }
+
+    meds.forEach((m)=>{
+      const already = !!(settings.medTaken && settings.medTaken[tKey] && settings.medTaken[tKey][m.idx]);
+      const row = document.createElement('div');
+      row.className = 'med-alert-item' + (already ? ' done' : '');
+      row.innerHTML =
+        (m.photo ? ('<img src="' + m.photo + '" alt="">') : '<div class="item-icon">💊</div>') +
+        '<div class="item-info"><div class="item-name">' + esc(m.name || t('med_default_name')) + '</div>' +
+        (m.dose ? ('<div class="item-dose">' + esc(m.dose) + '</div>') : '') + '</div>' +
+        '<button type="button" class="item-take" data-idx="' + m.idx + '">' + (already ? t('taken_check') : t('taken_btn_list')) + '</button>';
+      container.appendChild(row);
+    });
+    container.querySelectorAll('.item-take').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const med = meds.find(x=>x.idx === idx);
+        markMedicationTaken(idx, med && med.name);
+        const tk = todayKey();
+        btn.textContent = t('taken_check');
+        btn.closest('.med-alert-item').classList.add('done');
+        const allDone = meds.every(x => settings.medTaken[tk][x.idx]);
+        if (allDone) hideMedAlert();
+      });
+    });
+  }
+
+  function showMedAlert(type, data, remainingMs){
+    const icon = document.getElementById('medAlertIcon');
+    const heading = document.getElementById('medAlertHeading');
+    const itemsWrap = document.getElementById('medAlertItems');
+    const timeEl = document.getElementById('medAlertTime');
+
+    medAlertOverlay.classList.remove('doctor-type', 'alarm-type', 'missed-type');
+    if (type === 'medicine'){
+      icon.textContent = '💊';
+      heading.textContent = data.length > 1 ? t('med_due_multi', {n:data.length}) : t('med_due_single');
+      timeEl.textContent = data[0] ? (t('time_at_prefix') + data[0].time) : '';
+      renderMedAlertItems(data);
+    } else if (type === 'doctor'){
+      medAlertOverlay.classList.add('doctor-type');
+      icon.textContent = '🩺';
+      heading.textContent = data.name ? t('appt_with_name', {name:data.name}) : t('doctor_appointment');
+      itemsWrap.innerHTML = data.note
+        ? ('<div class="med-alert-item" style="justify-content:center;"><div class="item-info" style="text-align:center;"><div class="item-dose" style="font-size:18px;">' + esc(data.note) + '</div></div></div>')
+        : '';
+      timeEl.textContent = data.timeLabel || '';
+    } else if (type === 'missed'){
+      medAlertOverlay.classList.add('missed-type');
+      icon.textContent = '⚠️';
+      heading.textContent = t('missed_heading', {name:(data.name || t('med_default_name'))});
+      itemsWrap.innerHTML =
+        '<div class="med-alert-item" style="justify-content:center;"><div class="item-info" style="text-align:center;"><div class="item-dose" style="font-size:18px;">' + t('missed_body', {time:data.time}) + '</div></div></div>' +
+        '<button type="button" id="notifyFamilyMissedBtn" class="med-alert-btn" style="margin-top:12px;">' + t('notify_family_btn') + '</button>';
+      timeEl.textContent = '';
+      const notifyBtn = itemsWrap.querySelector('#notifyFamilyMissedBtn');
+      if (notifyBtn){
+        notifyBtn.addEventListener('click', ()=>{
+          if (settings.familyPhone){
+            const body = encodeURIComponent(t('sms_missed_msg', {name:(data.name || t('med_default_name')), time:data.time}));
+            window.location.href = 'sms:' + settings.familyPhone + '?body=' + body;
+          }
+          hideMedAlert();
+        });
+      }
+    } else {
+      medAlertOverlay.classList.add('alarm-type');
+      icon.textContent = '⏰';
+      heading.textContent = data.name ? data.name : t('alarm_due');
+      itemsWrap.innerHTML = '';
+      timeEl.textContent = data.time ? (t('time_at_prefix') + data.time) : '';
+    }
+    medAlertOverlay.classList.add('show');
+    if (navigator.vibrate) navigator.vibrate([150,80,150,80,150]);
+    startAlertSound();
+
+    if (typeof remainingMs !== 'number'){
+      settings.pendingAlert = { type, data, startedAt: Date.now() };
+      saveSettings(settings);
+      remainingMs = ALERT_AUTO_HIDE_MS;
+    }
+    clearTimeout(alertAutoHideTimer);
+    alertAutoHideTimer = setTimeout(hideMedAlert, remainingMs);
+  }
+  function hideMedAlert(){
+    clearTimeout(alertAutoHideTimer);
+    stopAlertSound();
+    medAlertOverlay.classList.remove('show');
+    settings.pendingAlert = null;
+    saveSettings(settings);
+  }
+  document.getElementById('medAlertCloseBtn').addEventListener('click', hideMedAlert);
+  // إن أُغلق التطبيق أثناء وجود تنبيه لم يُغلق بعد، يعاد عرضه عند إعادة الفتح — لما تبقّى من نصف الدقيقة فقط
+  if (settings.pendingAlert && settings.pendingAlert.type){
+    const elapsed = Date.now() - (settings.pendingAlert.startedAt || 0);
+    const remaining = ALERT_AUTO_HIDE_MS - elapsed;
+    if (remaining > 0){
+      showMedAlert(settings.pendingAlert.type, settings.pendingAlert.data, remaining);
+    } else {
+      settings.pendingAlert = null;
+      saveSettings(settings);
+    }
+  }
+
+  // يتحقق كل 30 ثانية من كل مواعيد الدواء المسجّلة
+  function fireNotification(title, body, tag){
+    const show = (reg) => {
+      (reg ? reg.showNotification.bind(reg) : (t,o)=>new Notification(t,o))(
+        title, { body, vibrate:[200,100,200], tag }
+      );
+    };
+    if (swRegistration) show(swRegistration); else show(null);
+  }
+
+  setInterval(()=>{
+    const notifOk = ('Notification' in window) && Notification.permission === 'granted';
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const current = hh + ':' + mm;
+    const tKey = todayKey();
+
+    // مواعيد الدواء — قد يتزامن أكثر من دواء في نفس الوقت، فتُجمع في تنبيه واحد
+    if (settings.medications && settings.medications.length){
+      settings.medNotified = settings.medNotified || {};
+      const dueMeds = [];
+      settings.medications.forEach((m, idx)=>{
+        const notifKey = idx + '_' + m.time;
+        if (m.time === current && settings.medNotified[notifKey] !== tKey){
+          settings.medNotified[notifKey] = tKey;
+          dueMeds.push({ name: m.name, dose: m.dose, time: m.time, photo: m.photo, idx: idx });
+        }
+      });
+      if (dueMeds.length){
+        saveSettings(settings);
+        if (notifOk){
+          const isMultiple = dueMeds.length > 1;
+          const namesList = dueMeds.map(m => m.name || t('med_default_name')).join(getLang()==='ar' ? '، ' : ', ');
+          const openText = getLang()==='ar' ? 'اضغط لفتح تطبيق سهل وتأكيد أخذ الدواء.' : (getLang()==='fr' ? "Appuyez pour ouvrir Sahl et confirmer la prise." : 'Tap to open Sahl and confirm the dose.');
+          const medsLabel = getLang()==='ar' ? 'الأدوية: ' : (getLang()==='fr' ? 'Médicaments : ' : 'Medicines: ');
+          fireNotification(
+            isMultiple ? (t('med_due_multi', {n:dueMeds.length}) + ' 💊') : ('💊 ' + t('med_due_single') + (dueMeds[0].name ? (' — ' + dueMeds[0].name) : '')),
+            isMultiple ? (medsLabel + namesList) : openText,
+            'sahl-med-' + tKey + '-' + current
+          );
+        }
+        showMedAlert('medicine', dueMeds);
+      }
+    }
+
+    // جرعات فائتة — لم تُؤخذ خلال 20 دقيقة من موعدها، ولدى العائلة رقم مسجّل
+    if (settings.medications && settings.medications.length && settings.familyPhone){
+      settings.medMissedNotified = settings.medMissedNotified || {};
+      settings.medTaken = settings.medTaken || {};
+      settings.medTaken[tKey] = settings.medTaken[tKey] || {};
+      settings.medications.forEach((m, idx)=>{
+        if (!m.time) return;
+        const parts = m.time.split(':');
+        const doseDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(parts[0],10), parseInt(parts[1],10));
+        const minutesPast = (now - doseDate) / 60000;
+        const missKey = idx + '_' + m.time;
+        if (minutesPast >= 20 && minutesPast < 180 &&
+            !settings.medTaken[tKey][idx] &&
+            settings.medMissedNotified[missKey] !== tKey){
+          settings.medMissedNotified[missKey] = tKey;
+          saveSettings(settings);
+          showMedAlert('missed', { name: m.name, time: m.time, idx: idx });
+        }
+      });
+    }
+
+    // المنبّه اليومي (استيقاظ وغيره)
+    if (settings.dailyAlarms && settings.dailyAlarms.length){
+      settings.alarmNotified = settings.alarmNotified || {};
+      settings.dailyAlarms.forEach((a, idx)=>{
+        const notifKey = idx + '_' + a.time;
+        if (a.time === current && settings.alarmNotified[notifKey] !== tKey){
+          settings.alarmNotified[notifKey] = tKey;
+          saveSettings(settings);
+          if (notifOk) fireNotification('⏰ ' + (a.name || t('alarm_due')), getLang()==='ar' ? 'حان الوقت.' : (getLang()==='fr' ? "C'est l'heure." : "It's time."), 'sahl-alarm-'+idx);
+          showMedAlert('alarm', { name: a.name, time: a.time });
+        }
+      });
+    }
+
+    // موعد مراجعة الطبيب — تذكير من 3 أيام قبل الموعد، مرة واحدة يوميًا الساعة 7:30 صباحًا
+    if (settings.appointmentDate){
+      const d = daysUntil(settings.appointmentDate);
+      if (d !== null && d >= 0 && d <= 3 && settings.appointmentNotifiedOn !== tKey && current === '07:30'){
+        settings.appointmentNotifiedOn = tKey;
+        saveSettings(settings);
+        const msg = d === 0 ? t('appt_today') : (d === 1 ? t('appt_tomorrow') : t('appt_in_days', {d:d}));
+        if (notifOk) fireNotification('🩺 ' + msg, settings.appointmentNote || (getLang()==='ar' ? 'لا تنسَ موعد المراجعة.' : (getLang()==='fr' ? "N'oubliez pas le rendez-vous." : "Don't forget the appointment.")), 'sahl-appointment');
+        showMedAlert('doctor', { name: settings.doctorName, note: settings.appointmentNote, timeLabel: msg });
+      }
+      updateAppointmentBanner();
+    }
+  }, 30000);
+
+  // ---- Settings screen ----
+  const appScreen = document.getElementById('app');
+  const settingsScreen = document.getElementById('settingsScreen');
+
+  function renderMedList(){
+    const container = document.getElementById('medList');
+    container.innerHTML = '';
+    const meds = settings.medications || [];
+    meds.forEach((m, idx)=>{
+      const card = document.createElement('div');
+      card.className = 'med-card';
+      card.innerHTML =
+        '<div class="med-card-row">' +
+          '<input type="text" class="med-name" placeholder="' + t('ph_med_name') + '" value="' + (m.name || '').replace(/"/g,'&quot;') + '">' +
+        '</div>' +
+        '<div class="med-card-row">' +
+          '<input type="time" class="med-time" value="' + (m.time || '') + '">' +
+        '</div>' +
+        '<div class="med-card-row">' +
+          '<input type="text" class="med-dose" placeholder="' + t('ph_med_dose') + '" value="' + (m.dose || '').replace(/"/g,'&quot;') + '">' +
+        '</div>' +
+        '<div class="med-card-row">' +
+          '<input type="number" min="0" class="med-remaining" placeholder="' + t('ph_med_remaining') + '" value="' + (typeof m.remaining === 'number' ? m.remaining : '') + '">' +
+        '</div>' +
+        '<div class="med-card-row">' +
+          (m.photo ? ('<img class="med-photo-preview" src="' + m.photo + '">') : '<div class="med-photo-preview placeholder">💊</div>') +
+          '<label class="med-photo-btn">' +
+            '<span>' + (m.photo ? t('change_photo') : t('add_photo')) + '</span>' +
+            '<input type="file" accept="image/*" class="med-photo-input" data-idx="' + idx + '" style="display:none;">' +
+          '</label>' +
+          '<button type="button" class="remove-med" data-idx="' + idx + '">×</button>' +
+        '</div>';
+      container.appendChild(card);
+    });
+    container.querySelectorAll('.remove-med').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const i = parseInt(btn.getAttribute('data-idx'), 10);
+        settings.medications.splice(i, 1);
+        saveSettings(settings);
+        renderMedList();
+      });
+    });
+    container.querySelectorAll('.med-photo-input').forEach(inp=>{
+      inp.addEventListener('change', (e)=>{
+        const idx = parseInt(inp.getAttribute('data-idx'), 10);
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (file.size > 1500000){
+          showSheet(t('image_too_big_title'), t('image_too_big_text'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = ()=>{
+          settings.medications[idx].photo = reader.result;
+          saveSettings(settings);
+          renderMedList();
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+    if (meds.length === 0){
+      container.innerHTML = '<div style="font-size:19px; color:var(--ink); padding:4px 2px 8px; font-weight:500;">' + t('no_meds_yet') + '</div>';
+    }
+  }
+
+  document.getElementById('addMedBtn').addEventListener('click', ()=>{
+    settings.medications = settings.medications || [];
+    settings.medications.push({ name:'', time:'' });
+    renderMedList();
+  });
+
+  // ---- Daily alarms (general use, e.g. wake-up time) ----
+  function renderAlarmList(){
+    const container = document.getElementById('alarmList');
+    container.innerHTML = '';
+    const alarms = settings.dailyAlarms || [];
+    alarms.forEach((a, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'med-row';
+      row.innerHTML =
+        '<input type="text" class="alarm-name" placeholder="' + t('ph_alarm_name') + '" value="' +
+        (a.name || '').replace(/"/g,'&quot;') + '">' +
+        '<input type="time" class="alarm-time" value="' + (a.time || '') + '">' +
+        '<button type="button" class="remove-alarm" data-idx="' + idx + '">×</button>';
+      container.appendChild(row);
+    });
+    container.querySelectorAll('.remove-alarm').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const i = parseInt(btn.getAttribute('data-idx'), 10);
+        settings.dailyAlarms.splice(i, 1);
+        renderAlarmList();
+      });
+    });
+    if (alarms.length === 0){
+      container.innerHTML = '<div style="font-size:19px; color:var(--ink); padding:4px 2px 8px; font-weight:500;">' + t('no_alarms_yet') + '</div>';
+    }
+  }
+  document.getElementById('addAlarmBtn').addEventListener('click', ()=>{
+    settings.dailyAlarms = settings.dailyAlarms || [];
+    settings.dailyAlarms.push({ name:'', time:'' });
+    renderAlarmList();
+  });
+
+  function openSettings(){
+    document.getElementById('familyName').value = settings.familyName || '';
+    document.getElementById('familyPhone').value = settings.familyPhone || '';
+    document.getElementById('doctorName').value = settings.doctorName || '';
+    document.getElementById('doctorPhone').value = settings.doctorPhone || '';
+    document.getElementById('appointmentDate').value = settings.appointmentDate || '';
+    document.getElementById('appointmentNote').value = settings.appointmentNote || '';
+    document.getElementById('bloodType').value = settings.bloodType || '';
+    document.getElementById('allergies').value = settings.allergies || '';
+    document.getElementById('chronicConditions').value = settings.chronicConditions || '';
+    document.getElementById('iceNotes').value = settings.iceNotes || '';
+    settings.medications = settings.medications || [];
+    settings.dailyAlarms = settings.dailyAlarms || [];
+    renderMedList();
+    renderAlarmList();
+    updateNotifStatus();
+    ensurePairingCode().then(code=>{
+      const el = document.getElementById('familyCodeDisplay');
+      if (el) el.textContent = code || '—';
+    });
+    const soundVal = settings.alarmSound || 'classic';
+    const volVal = (typeof settings.alarmVolume === 'number') ? settings.alarmVolume : 70;
+    document.getElementById('alarmSoundSelect').value = soundVal;
+    document.getElementById('alarmVolumeRange').value = volVal;
+    document.getElementById('alarmVolumeValue').textContent = volVal + '%';
+    appScreen.style.display = 'none';
+    settingsScreen.classList.add('show');
+    screenTransition();
+  }
+  function closeSettings(){
+    settingsScreen.classList.remove('show');
+    appScreen.style.display = 'flex';
+    refreshLabels();
+    screenTransition();
+  }
+
+  document.getElementById('settingsBtn').addEventListener('click', openSettings);
+  document.getElementById('backBtn').addEventListener('click', closeSettings);
+
+  // ---- Today's medications screen (mark as taken + inline edit) ----
+  const medsScreen = document.getElementById('medsScreen');
+  function renderMedsToday(){
+    const container = document.getElementById('medsTodayList');
+    container.innerHTML = '';
+    const meds = settings.medications || [];
+    if (meds.length === 0){
+      container.innerHTML = '<div style="font-size:19px; color:var(--ink); padding:8px 2px; font-weight:500;">' + t('no_meds_today') + '</div>';
+      return;
+    }
+    settings.medTaken = settings.medTaken || {};
+    const tKey = todayKey();
+    settings.medTaken[tKey] = settings.medTaken[tKey] || {};
+
+    meds.forEach((m, idx)=>{
+      const taken = !!settings.medTaken[tKey][idx];
+      const row = document.createElement('div');
+      row.className = 'med-today-row';
+      const thumb = m.photo ? ('<img src="' + m.photo + '" style="width:78px;height:78px;border-radius:16px;object-fit:cover;flex-shrink:0;border:2px solid var(--line);">') : '<div style="width:78px;height:78px;border-radius:16px;background:#EFE8D6;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;">💊</div>';
+      row.innerHTML =
+        '<div class="med-today-top">' +
+          thumb +
+          '<div class="info"><div class="n">' + esc(m.name || t('med_default_name')) + '</div><div class="t">' + t('time_at_prefix') + esc(m.time) + (m.dose ? (' — ' + esc(m.dose)) : '') + (typeof m.remaining === 'number' ? (t('remaining_label') + m.remaining) : '') + '</div></div>' +
+        '</div>' +
+        '<div class="med-today-actions">' +
+          '<button type="button" class="take-btn' + (taken ? ' taken' : '') + '" data-idx="' + idx + '">' +
+          (taken ? t('taken_check') : t('taken_btn_list')) + '</button>' +
+        '</div>';
+      container.appendChild(row);
+    });
+
+    container.querySelectorAll('.take-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = btn.getAttribute('data-idx');
+        const already = settings.medTaken[tKey][idx];
+        const m = meds[idx];
+        if (!already){
+          markMedicationTaken(idx, m.name);
+        } else {
+          settings.medTaken[tKey][idx] = false;
+          if (m && typeof m.remaining === 'number') m.remaining += 1;
+          saveSettings(settings);
+        }
+        renderMedsToday();
+      });
+    });
+  }
+
+  function openMedsScreen(){
+    renderMedsToday();
+    appScreen.style.display = 'none';
+    medsScreen.classList.add('show');
+    screenTransition();
+  }
+  function closeMedsScreen(){
+    medsScreen.classList.remove('show');
+    appScreen.style.display = 'flex';
+    refreshLabels();
+    screenTransition();
+  }
+  document.getElementById('medsBackBtn').addEventListener('click', closeMedsScreen);
+
+  document.getElementById('printMedsBtn').addEventListener('click', ()=>{
+    const meds = settings.medications || [];
+    let rows = '';
+    if (meds.length === 0){
+      rows = '<tr><td colspan="3" style="text-align:center; padding:20px;">' + t('print_no_meds') + '</td></tr>';
+    } else {
+      meds.forEach(m=>{
+        rows += '<tr>' +
+          '<td>' + esc(m.name || '—') + '</td>' +
+          '<td>' + esc(m.dose || '—') + '</td>' +
+          '<td>' + esc(m.time || '—') + '</td>' +
+          '</tr>';
+      });
+    }
+    const localeMap = { ar:'ar-DZ', fr:'fr-FR', en:'en-US' };
+    const todayStr = new Date().toLocaleDateString(localeMap[getLang()] || 'ar-DZ', { year:'numeric', month:'long', day:'numeric' });
+    const printDir = getLang() === 'ar' ? 'rtl' : 'ltr';
+    const printAlign = getLang() === 'ar' ? 'right' : 'left';
+    const html = '<!DOCTYPE html><html dir="' + printDir + '" lang="' + getLang() + '"><head><meta charset="utf-8">' +
+      '<title>' + t('print_title') + '</title><style>' +
+      'body{font-family:Tahoma,Arial,sans-serif; padding:30px; color:#23241F;}' +
+      'h1{font-size:22px; margin-bottom:4px;} .date{color:#5B5D54; margin-bottom:20px; font-size:15px;}' +
+      'table{width:100%; border-collapse:collapse;} th,td{border:1px solid #ccc; padding:10px 12px; text-align:' + printAlign + '; font-size:15px;}' +
+      'th{background:#F0EAD8;}' +
+      '.info{margin-top:24px; font-size:14px; color:#5B5D54; border-top:1px solid #ccc; padding-top:14px;}' +
+      '</style></head><body>' +
+      '<h1>' + t('print_h1') + '</h1>' +
+      '<div class="date">' + t('print_date_label') + todayStr + '</div>' +
+      '<table><thead><tr><th>' + t('print_th_name') + '</th><th>' + t('print_th_dose') + '</th><th>' + t('print_th_time') + '</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      (settings.doctorName ? '<div class="info">' + t('print_doctor_label') + esc(settings.doctorName) + '</div>' : '') +
+      (settings.allergies ? '<div class="info">' + t('print_allergy_label') + esc(settings.allergies) + '</div>' : '') +
+      (settings.chronicConditions ? '<div class="info">' + t('print_chronic_label') + esc(settings.chronicConditions) + '</div>' : '') +
+      '</body></html>';
+    const win = window.open('', '_blank');
+    if (win){
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(()=>{ win.print(); }, 300);
+    } else {
+      showSheet(t('print_fail_title'), t('print_fail_text'));
+    }
+  });
+
+  // ---- Family activity view (local device log) ----
+  const activityScreen = document.getElementById('activityScreen');
+  const activityDotColor = { open:'var(--doctor)', emergency:'var(--emergency)', med_taken:'var(--family)' };
+
+  function renderActivity(){
+    const container = document.getElementById('activityList');
+    const log = settings.activityLog || [];
+    if (log.length === 0){
+      container.innerHTML = '<div style="font-size:17px; color:var(--ink); padding:8px 2px; font-weight:500;">' + t('no_activity_yet') + '</div>';
+      return;
+    }
+    container.innerHTML = log.map(e=>
+      '<div class="activity-row"><div class="dot" style="background:' + (activityDotColor[e.type] || '#999') + '"></div>' +
+      '<div class="txt">' + e.label + '</div><div class="time">' + e.time + '</div></div>'
+    ).join('');
+  }
+
+  function openActivityScreen(){
+    renderActivity();
+    settingsScreen.classList.remove('show');
+    activityScreen.classList.add('show');
+    screenTransition();
+  }
+  document.getElementById('viewActivityBtn').addEventListener('click', openActivityScreen);
+  document.getElementById('activityBackBtn').addEventListener('click', ()=>{
+    activityScreen.classList.remove('show');
+    settingsScreen.classList.add('show');
+    screenTransition();
+  });
+
+  document.getElementById('saveSettingsBtn').addEventListener('click', ()=>{
+    settings.familyName = document.getElementById('familyName').value.trim();
+    settings.familyPhone = document.getElementById('familyPhone').value.trim();
+    settings.doctorName = document.getElementById('doctorName').value.trim();
+    settings.doctorPhone = document.getElementById('doctorPhone').value.trim();
+    settings.appointmentDate = document.getElementById('appointmentDate').value;
+    settings.appointmentNote = document.getElementById('appointmentNote').value.trim();
+    settings.bloodType = document.getElementById('bloodType').value.trim();
+    settings.allergies = document.getElementById('allergies').value.trim();
+    settings.chronicConditions = document.getElementById('chronicConditions').value.trim();
+    settings.iceNotes = document.getElementById('iceNotes').value.trim();
+
+    const medCards = document.querySelectorAll('#medList .med-card');
+    const meds = [];
+    medCards.forEach((card, idx)=>{
+      const name = card.querySelector('.med-name').value.trim();
+      const time = card.querySelector('.med-time').value;
+      const dose = card.querySelector('.med-dose').value.trim();
+      const photo = (settings.medications[idx] && settings.medications[idx].photo) || '';
+      const remainingRaw = card.querySelector('.med-remaining').value;
+      const remaining = remainingRaw === '' ? undefined : Math.max(0, parseInt(remainingRaw, 10) || 0);
+      const prevMed = settings.medications[idx];
+      if (typeof remaining === 'number' && prevMed && typeof prevMed.remaining === 'number' && remaining > prevMed.remaining){
+        settings.medLowStockNotified = settings.medLowStockNotified || {};
+        delete settings.medLowStockNotified[idx];
+      }
+      if (time){
+        const entry = { name, time, dose, photo };
+        if (typeof remaining === 'number') entry.remaining = remaining;
+        meds.push(entry);
+      }
+    });
+    settings.medications = meds;
+
+    const alarmRows = document.querySelectorAll('#alarmList .med-row');
+    const alarms = [];
+    alarmRows.forEach(row=>{
+      const name = row.querySelector('.alarm-name').value.trim();
+      const time = row.querySelector('.alarm-time').value;
+      if (time) alarms.push({ name, time });
+    });
+    settings.dailyAlarms = alarms;
+
+    settings.alarmSound = document.getElementById('alarmSoundSelect').value;
+    settings.alarmVolume = parseInt(document.getElementById('alarmVolumeRange').value, 10);
+
+    saveSettings(settings);
+    const flash = document.getElementById('savedFlash');
+    flash.classList.add('show');
+    setTimeout(()=> flash.classList.remove('show'), 1800);
+  });
+
+  // ---- تحديث حي لنسبة درجة الصوت + زر تجربة النغمة ----
+  document.getElementById('alarmVolumeRange').addEventListener('input', (e)=>{
+    document.getElementById('alarmVolumeValue').textContent = e.target.value + '%';
+  });
+  document.getElementById('testAlarmSoundBtn').addEventListener('click', ()=>{
+    const soundVal = document.getElementById('alarmSoundSelect').value;
+    const volVal = parseInt(document.getElementById('alarmVolumeRange').value, 10);
+    playAlertTone(soundVal, volVal);
+  });
+
+  // ---- Emergency: press-and-hold 1.6s to avoid accidental triggers ----
+  const emBtn = document.getElementById('emergencyBtn');
+  const emProgress = document.getElementById('emergencyProgress');
+  const HOLD_MS = 1600;
+  let holdTimer = null;
+  let holdStart = null;
+
+  function startHold(e){
+    e.preventDefault();
+    holdStart = Date.now();
+    emProgress.style.transition = 'transform ' + HOLD_MS + 'ms linear';
+    emProgress.style.transform = 'scaleX(1)';
+    holdTimer = setTimeout(triggerEmergency, HOLD_MS);
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+  function cancelHold(){
+    clearTimeout(holdTimer);
+    emProgress.style.transition = 'transform 200ms ease-out';
+    emProgress.style.transform = 'scaleX(0)';
+  }
+  function triggerEmergency(){
+    emProgress.style.transition = 'none';
+    emProgress.style.transform = 'scaleX(0)';
+    if (navigator.vibrate) navigator.vibrate([80,40,80]);
+    logActivity('emergency', getLang()==='ar' ? 'ضغط زر الطوارئ' : (getLang()==='fr' ? "Bouton d'urgence pressé" : 'Emergency button pressed'));
+    sendFamilyAlert('emergency');
+
+    const sendMessage = (locText) => {
+      if (settings.familyPhone){
+        let medicalInfo = '';
+        if (settings.bloodType) medicalInfo += t('blood_type_label_sms') + settings.bloodType;
+        if (settings.allergies) medicalInfo += t('allergy_label_sms') + settings.allergies;
+        if (settings.chronicConditions) medicalInfo += t('chronic_label_sms') + settings.chronicConditions;
+        if (settings.iceNotes) medicalInfo += t('note_label_sms') + settings.iceNotes;
+        const body = encodeURIComponent(t('emergency_sms_prefix') + locText + medicalInfo);
+        window.location.href = 'sms:' + settings.familyPhone + '?body=' + body;
+        showSheet(t('emergency_sent_title'), t('emergency_sent_text'));
+      } else {
+        showSheet(t('not_setup_title'), t('no_emergency_number_text'));
+      }
+    };
+
+    if (navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        (pos)=>{
+          const loc = t('location_label') + 'https://maps.google.com/?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
+          sendMessage(loc);
+        },
+        ()=> sendMessage(t('location_unavailable')),
+        { timeout: 4000 }
+      );
+    } else {
+      sendMessage('');
+    }
+  }
+
+  emBtn.addEventListener('touchstart', startHold, {passive:false});
+  emBtn.addEventListener('touchend', cancelHold);
+  emBtn.addEventListener('touchcancel', cancelHold);
+  emBtn.addEventListener('mousedown', startHold);
+  emBtn.addEventListener('mouseup', cancelHold);
+  emBtn.addEventListener('mouseleave', cancelHold);
+</script>
+
+<div id="transitionFlash"></div>
+
+</body>
+</html>
